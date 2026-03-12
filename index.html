@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wealth Platform — System Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────
+   TOKENS — DARK (default)
+───────────────────────────────────── */
+:root {
+  --bg:        #08090f;
+  --bg2:       #0d0f1a;
+  --panel:     #0f1120;
+  --card:      #131626;
+  --card-h:    #181c30;
+  --border:    rgba(255,255,255,0.07);
+  --border-h:  rgba(255,255,255,0.14);
+  --glow:      rgba(99,102,241,.18);
+
+  --text:      #e2e6f0;
+  --text2:     #7b8399;
+  --text3:     #3e4560;
+
+  --nav-bg:    rgba(8,9,15,.92);
+  --nav-border: rgba(255,255,255,0.07);
+  --search-bg:  rgba(255,255,255,.05);
+  --search-border: rgba(255,255,255,0.07);
+  --dot-color: rgba(255,255,255,.035);
+
+  --c1: #6366f1;
+  --c2: #8b5cf6;
+  --c3: #06b6d4;
+  --c4: #f59e0b;
+  --c5: #ef4444;
+  --c6: #10b981;
+  --c7: #f97316;
+
+  --font-ui:   'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ─────────────────────────────────────
+   TOKENS — LIGHT
+───────────────────────────────────── */
+html.light {
+  --bg:        #f0f4f9;
+  --bg2:       #e8edf5;
+  --panel:     #ffffff;
+  --card:      #ffffff;
+  --card-h:    #f5f7fb;
+  --border:    rgba(0,0,0,0.08);
+  --border-h:  rgba(0,0,0,0.16);
+  --glow:      rgba(99,102,241,.1);
+
+  --text:      #111827;
+  --text2:     #5a6478;
+  --text3:     #9ca3af;
+
+  --nav-bg:    rgba(255,255,255,.96);
+  --nav-border: rgba(0,0,0,0.08);
+  --search-bg:  rgba(0,0,0,.04);
+  --search-border: rgba(0,0,0,0.1);
+  --dot-color: rgba(0,0,80,.04);
+}
+
+/* Global reset + smooth theme transitions */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+  transition: background-color .25s ease, border-color .25s ease, color .18s ease, box-shadow .25s ease;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* subtle dot-grid */
+body::before {
+  content:'';
+  position:fixed; inset:0; z-index:0;
+  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events:none;
+  transition: none;
+}
+
+/* ─────────────────────────────────────
+   NAV
+───────────────────────────────────── */
+nav {
+  position: sticky; top:0; z-index: 1000;
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 24px;
+  height: 52px;
+  background: var(--nav-bg);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--nav-border);
+}
+
+.nav-logo {
+  display: flex; align-items: center; gap: 9px;
+  text-decoration: none;
+}
+.nav-logo-icon {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 700; color: #fff;
+  font-family: var(--font-mono);
+  flex-shrink:0;
+}
+.nav-logo-text  { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing:-.01em; }
+.nav-logo-sub   { font-size: 9px; color: var(--text2); letter-spacing:.08em; text-transform:uppercase; font-family: var(--font-mono); }
+
+.nav-search {
+  flex: 1; max-width: 340px; margin-left: 24px;
+  position: relative;
+}
+.nav-search input {
+  width: 100%;
+  background: var(--search-bg);
+  border: 1px solid var(--search-border);
+  border-radius: 7px;
+  padding: 6px 12px 6px 34px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+  outline: none;
+  transition: border-color .2s, background .2s;
+}
+.nav-search input:focus { border-color: rgba(99,102,241,.5); background: rgba(99,102,241,.07); color: var(--text); }
+.nav-search input::placeholder { color: var(--text3); }
+.nav-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--text3); font-size: 13px; pointer-events: none;
+}
+
+.nav-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.35);
+  border-radius: 7px; padding: 5px 12px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  color: #a5b4fc; cursor: pointer; letter-spacing:.05em;
+  transition: background .2s;
+}
+.nav-btn:hover { background: rgba(99,102,241,.28); }
+.nav-btn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c1); animation: pulse 2s infinite; }
+
+.nav-legend { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.nav-legend-label { font-family: var(--font-mono); font-size: 9px; color: var(--text3); letter-spacing:.1em; }
+.nav-legend-dots { display: flex; gap: 5px; }
+.nav-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ─────────────────────────────────────
+   MAIN CONTENT
+───────────────────────────────────── */
+main {
+  position: relative; z-index: 1;
+  padding: 24px 20px 40px;
+  max-width: 1200px; margin: 0 auto;
+}
+
+/* ─────────────────────────────────────
+   LAYER
+───────────────────────────────────── */
+.layer {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  margin-bottom: 14px;
+  overflow: hidden;
+  transition: border-color .25s;
+}
+.layer:hover { border-color: var(--border-h); }
+
+.layer-header {
+  padding: 18px 22px 12px;
+  position: relative;
+}
+
+.layer-num-title {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 4px;
+}
+.layer-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  display: grid; place-items: center;
+  flex-shrink:0;
+}
+.layer-icon svg { width: 15px; height: 15px; }
+.layer-title { font-size: 15px; font-weight: 700; color: #fff; letter-spacing:-.01em; }
+.layer-subtitle { font-size: 11px; color: var(--text2); padding-left: 38px; font-family: var(--font-mono); }
+
+.layer-body { padding: 0 14px 16px; }
+
+/* card grid */
+.card-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.card-grid.cols-4 > .card { flex: 1 1 calc(25% - 8px); min-width: 180px; }
+.card-grid.cols-5 > .card { flex: 1 1 calc(20% - 8px); min-width: 160px; }
+.card-grid.cols-6 > .card { flex: 1 1 calc(16.6% - 9px); min-width: 140px; }
+.card-grid.cols-3 > .card { flex: 1 1 calc(33.3% - 7px); min-width: 200px; }
+
+/* ─────────────────────────────────────
+   CARD
+───────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, transform .2s, box-shadow .2s;
+  overflow: visible;
+}
+.card::before {
+  content:'';
+  position: absolute; inset:0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+}
+.card:hover {
+  background: var(--card-h);
+  transform: translateY(-2px);
+  z-index: 10;
+}
+
+.card-title {
+  font-size: 12px; font-weight: 600; color: #fff;
+  margin-bottom: 5px; letter-spacing: -.01em;
+}
+.card-desc {
+  font-size: 10px; color: var(--text2); line-height: 1.6;
+  margin-bottom: 9px;
+  font-family: var(--font-mono);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.tag {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  padding: 2px 7px; border-radius: 3px; letter-spacing:.04em;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────
+   LAYER COLOR THEMES
+───────────────────────────────────── */
+
+/* 1 Client – indigo */
+.layer-1 { background: linear-gradient(180deg, rgba(99,102,241,.08) 0%, rgba(99,102,241,.03) 100%); }
+.layer-1 .layer-icon { background: rgba(99,102,241,.2); }
+.layer-1 .layer-title { color: #a5b4fc; }
+.layer-1 .card:hover  { border-color: rgba(99,102,241,.5); box-shadow: 0 0 0 1px rgba(99,102,241,.2), 0 8px 24px rgba(99,102,241,.12); }
+.layer-1 .card::before { background: radial-gradient(ellipse at top, rgba(99,102,241,.1), transparent 70%); }
+.layer-1 .card:hover::before { opacity:1; }
+
+/* 2 Gateway – violet */
+.layer-2 { background: linear-gradient(180deg, rgba(139,92,246,.08) 0%, rgba(139,92,246,.03) 100%); }
+.layer-2 .layer-icon { background: rgba(139,92,246,.2); }
+.layer-2 .layer-title { color: #c4b5fd; }
+.layer-2 .card:hover  { border-color: rgba(139,92,246,.5); box-shadow: 0 0 0 1px rgba(139,92,246,.2), 0 8px 24px rgba(139,92,246,.12); }
+.layer-2 .card::before { background: radial-gradient(ellipse at top, rgba(139,92,246,.1), transparent 70%); }
+.layer-2 .card:hover::before { opacity:1; }
+
+/* 3 Core – cyan */
+.layer-3 { background: linear-gradient(180deg, rgba(6,182,212,.07) 0%, rgba(6,182,212,.02) 100%); }
+.layer-3 .layer-icon { background: rgba(6,182,212,.2); }
+.layer-3 .layer-title { color: #67e8f9; }
+.layer-3 .card:hover  { border-color: rgba(6,182,212,.5); box-shadow: 0 0 0 1px rgba(6,182,212,.18), 0 8px 24px rgba(6,182,212,.1); }
+.layer-3 .card::before { background: radial-gradient(ellipse at top, rgba(6,182,212,.08), transparent 70%); }
+.layer-3 .card:hover::before { opacity:1; }
+
+/* 4 Messaging – amber */
+.layer-4 { background: linear-gradient(180deg, rgba(245,158,11,.08) 0%, rgba(245,158,11,.03) 100%); }
+.layer-4 .layer-icon { background: rgba(245,158,11,.2); }
+.layer-4 .layer-title { color: #fcd34d; }
+.layer-4 .card:hover  { border-color: rgba(245,158,11,.5); box-shadow: 0 0 0 1px rgba(245,158,11,.2), 0 8px 24px rgba(245,158,11,.1); }
+.layer-4 .card::before { background: radial-gradient(ellipse at top, rgba(245,158,11,.08), transparent 70%); }
+.layer-4 .card:hover::before { opacity:1; }
+
+/* 5 Storage – red */
+.layer-5 { background: linear-gradient(180deg, rgba(239,68,68,.07) 0%, rgba(239,68,68,.03) 100%); }
+.layer-5 .layer-icon { background: rgba(239,68,68,.2); }
+.layer-5 .layer-title { color: #fca5a5; }
+.layer-5 .card:hover  { border-color: rgba(239,68,68,.5); box-shadow: 0 0 0 1px rgba(239,68,68,.18), 0 8px 24px rgba(239,68,68,.1); }
+.layer-5 .card::before { background: radial-gradient(ellipse at top, rgba(239,68,68,.08), transparent 70%); }
+.layer-5 .card:hover::before { opacity:1; }
+
+/* 6 External – emerald */
+.layer-6 { background: linear-gradient(180deg, rgba(16,185,129,.07) 0%, rgba(16,185,129,.02) 100%); }
+.layer-6 .layer-icon { background: rgba(16,185,129,.2); }
+.layer-6 .layer-title { color: #6ee7b7; }
+.layer-6 .card:hover  { border-color: rgba(16,185,129,.5); box-shadow: 0 0 0 1px rgba(16,185,129,.18), 0 8px 24px rgba(16,185,129,.1); }
+.layer-6 .card::before { background: radial-gradient(ellipse at top, rgba(16,185,129,.08), transparent 70%); }
+.layer-6 .card:hover::before { opacity:1; }
+
+/* 7 Infra – orange */
+.layer-7 { background: linear-gradient(180deg, rgba(249,115,22,.07) 0%, rgba(249,115,22,.02) 100%); }
+.layer-7 .layer-icon { background: rgba(249,115,22,.2); }
+.layer-7 .layer-title { color: #fdba74; }
+.layer-7 .card:hover  { border-color: rgba(249,115,22,.5); box-shadow: 0 0 0 1px rgba(249,115,22,.18), 0 8px 24px rgba(249,115,22,.1); }
+.layer-7 .card::before { background: radial-gradient(ellipse at top, rgba(249,115,22,.08), transparent 70%); }
+.layer-7 .card:hover::before { opacity:1; }
+
+/* ─────────────────────────────────────
+   TAG COLOURS per layer
+───────────────────────────────────── */
+.t-indigo { background: rgba(99,102,241,.18);  color:#a5b4fc; }
+.t-violet { background: rgba(139,92,246,.18);  color:#c4b5fd; }
+.t-cyan   { background: rgba(6,182,212,.15);   color:#67e8f9; }
+.t-amber  { background: rgba(245,158,11,.15);  color:#fcd34d; }
+.t-red    { background: rgba(239,68,68,.15);   color:#fca5a5; }
+.t-green  { background: rgba(16,185,129,.15);  color:#6ee7b7; }
+.t-orange { background: rgba(249,115,22,.15);  color:#fdba74; }
+.t-pink   { background: rgba(236,72,153,.15);  color:#f9a8d4; }
+.t-sky    { background: rgba(14,165,233,.15);  color:#7dd3fc; }
+.t-slate  { background: rgba(100,116,139,.15); color:#94a3b8; }
+.t-lime   { background: rgba(132,204,22,.15);  color:#bef264; }
+.t-fuchsia{ background: rgba(217,70,239,.15);  color:#f0abfc; }
+
+/* ─────────────────────────────────────
+   FLOW ARROW SVG CANVAS
+───────────────────────────────────── */
+#flow-canvas {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  overflow: visible;
+}
+
+/* animated dash stroke */
+.flow-path {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 6 4;
+  stroke-dashoffset: 0;
+  animation: dash 0.6s linear infinite;
+  opacity: 0;
+  transition: opacity .3s;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+.flow-path.visible { opacity: 1; }
+
+/* arrowhead marker is defined inline in SVG */
+@keyframes dash {
+  to { stroke-dashoffset: -20; }
+}
+
+/* ─────────────────────────────────────
+   FLOW TOOLTIP
+───────────────────────────────────── */
+#flow-tooltip {
+  position: fixed;
+  background: rgba(13,15,26,.96);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text2);
+  line-height: 1.7;
+  max-width: 240px;
+  pointer-events: none;
+  z-index: 10000;
+  display: none;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+#flow-tooltip.show { display: block; }
+#flow-tooltip strong { color: #fff; display: block; margin-bottom: 3px; font-size: 11px; }
+
+/* ─────────────────────────────────────
+   SCROLL FADE IN
+───────────────────────────────────── */
+.layer {
+  opacity:0; transform: translateY(14px);
+  animation: layerIn .5s ease forwards;
+}
+.layer:nth-child(1){animation-delay:.05s}
+.layer:nth-child(2){animation-delay:.12s}
+.layer:nth-child(3){animation-delay:.19s}
+.layer:nth-child(4){animation-delay:.26s}
+.layer:nth-child(5){animation-delay:.33s}
+.layer:nth-child(6){animation-delay:.40s}
+.layer:nth-child(7){animation-delay:.47s}
+@keyframes layerIn {
+  to { opacity:1; transform:translateY(0); }
+}
+
+/* ─────────────────────────────────────
+   LIGHT MODE — layer & card overrides
+───────────────────────────────────── */
+html.light .layer-1 { background: linear-gradient(180deg, rgba(99,102,241,.06) 0%, rgba(99,102,241,.02) 100%); }
+html.light .layer-2 { background: linear-gradient(180deg, rgba(139,92,246,.06) 0%, rgba(139,92,246,.02) 100%); }
+html.light .layer-3 { background: linear-gradient(180deg, rgba(6,182,212,.05) 0%, rgba(6,182,212,.01) 100%); }
+html.light .layer-4 { background: linear-gradient(180deg, rgba(245,158,11,.06) 0%, rgba(245,158,11,.02) 100%); }
+html.light .layer-5 { background: linear-gradient(180deg, rgba(239,68,68,.05) 0%, rgba(239,68,68,.01) 100%); }
+html.light .layer-6 { background: linear-gradient(180deg, rgba(16,185,129,.05) 0%, rgba(16,185,129,.01) 100%); }
+html.light .layer-7 { background: linear-gradient(180deg, rgba(249,115,22,.05) 0%, rgba(249,115,22,.01) 100%); }
+
+html.light .layer-1 .layer-title { color: #4338ca; }
+html.light .layer-2 .layer-title { color: #6d28d9; }
+html.light .layer-3 .layer-title { color: #0e7490; }
+html.light .layer-4 .layer-title { color: #b45309; }
+html.light .layer-5 .layer-title { color: #b91c1c; }
+html.light .layer-6 .layer-title { color: #065f46; }
+html.light .layer-7 .layer-title { color: #c2410c; }
+
+html.light .card { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+html.light .card-title { color: #111827; }
+
+html.light .t-indigo { background: rgba(99,102,241,.12);  color:#4338ca; }
+html.light .t-violet { background: rgba(139,92,246,.12);  color:#6d28d9; }
+html.light .t-cyan   { background: rgba(6,182,212,.12);   color:#0e7490; }
+html.light .t-amber  { background: rgba(245,158,11,.12);  color:#b45309; }
+html.light .t-red    { background: rgba(239,68,68,.12);   color:#b91c1c; }
+html.light .t-green  { background: rgba(16,185,129,.12);  color:#065f46; }
+html.light .t-orange { background: rgba(249,115,22,.12);  color:#c2410c; }
+html.light .t-pink   { background: rgba(236,72,153,.12);  color:#9d174d; }
+html.light .t-sky    { background: rgba(14,165,233,.12);  color:#075985; }
+html.light .t-slate  { background: rgba(100,116,139,.12); color:#334155; }
+html.light .t-lime   { background: rgba(132,204,22,.12);  color:#3f6212; }
+html.light .t-fuchsia{ background: rgba(217,70,239,.12);  color:#7e22ce; }
+
+html.light #flow-tooltip {
+  background: rgba(255,255,255,.97);
+  border-color: rgba(0,0,0,.12);
+  color: #374151;
+  box-shadow: 0 8px 32px rgba(0,0,0,.14);
+}
+html.light #flow-tooltip strong { color: #111827; }
+
+/* ─────────────────────────────────────
+   THEME TOGGLE BUTTON
+───────────────────────────────────── */
+.theme-toggle {
+  position: relative;
+  display: flex; align-items: center; gap: 7px;
+  background: var(--search-bg);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 4px 8px 4px 10px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color .2s, background .2s;
+}
+.theme-toggle:hover {
+  border-color: rgba(99,102,241,.4);
+  background: rgba(99,102,241,.08);
+}
+
+.toggle-label {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  color: var(--text2); letter-spacing:.1em; text-transform: uppercase;
+  min-width: 32px;
+}
+
+.toggle-track {
+  width: 36px; height: 20px;
+  background: #2a3050;
+  border-radius: 99px;
+  position: relative;
+  border: 1px solid rgba(255,255,255,.08);
+  transition: background .3s, border-color .3s;
+  flex-shrink: 0;
+}
+html.light .toggle-track {
+  background: #e0e7ff;
+  border-color: rgba(99,102,241,.25);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #6366f1;
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1), background .3s;
+  display: grid; place-items: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+html.light .toggle-thumb {
+  transform: translateX(16px);
+  background: #4338ca;
+}
+
+.toggle-thumb svg {
+  width: 8px; height: 8px;
+  fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round;
+}
+.toggle-thumb .icon-moon { fill: #fff; stroke: none; }
+
+/* icon switching based on theme */
+.icon-sun  { display: none; }
+.icon-moon { display: block; }
+html.light .icon-sun  { display: block; }
+html.light .icon-moon { display: none; }
+/* ─────────────────────────────────────
+   MISC
+───────────────────────────────────── */
+.layer-row-gap { margin-bottom:10px; }
+
+</style>
+</head>
+<body>
+
+<!-- SVG overlay for animated flow arrows -->
+<svg id="flow-canvas" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-indigo" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <polygon points="0 0, 7 3.5, 0 7" fill="#a5b4fc"/>
+    </marker>
+    <marker id="arr-violet" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <polygon points="0 0, 7 3.5, 0 7" fill="#c4b5fd"/>
+    </marker>
+    <marker id="arr-cyan" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <polygon points="0 0, 7 3.5, 0 7" fill="#67e8f9"/>
+    </marker>
+    <marker id="arr-amber" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <polygon points="0 0, 7 3.5, 0 7" fill="#fcd34d"/>
+    </marker>
+    <marker id="arr-red" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <polygon points="0 0, 7 3.5, 0 7" fill="#fca5a5"/>
+    </marker>
+    <marker id="arr-green" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <polygon points="0 0, 7 3.5, 0 7" fill="#6ee7b7"/>
+    </marker>
+    <marker id="arr-orange" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+      <polygon points="0 0, 7 3.5, 0 7" fill="#fdba74"/>
+    </marker>
+  </defs>
+</svg>
+
+<!-- Tooltip -->
+<div id="flow-tooltip"></div>
+
+<!-- ── NAV ── -->
+<nav>
+  <a class="nav-logo" href="#">
+    <div class="nav-logo-icon">W</div>
+    <div>
+      <div class="nav-logo-text">Wealth Platform</div>
+      <div class="nav-logo-sub">System Architecture</div>
+    </div>
+  </a>
+  <div class="nav-search">
+    <span class="nav-search-icon">⌕</span>
+    <input type="text" placeholder="Search services, tech stack, layers…">
+  </div>
+  <button class="nav-btn"><span class="nav-btn-dot"></span> Data Flows</button>
+
+  <!-- ── THEME TOGGLE ── -->
+  <button class="theme-toggle" id="themeToggle" title="Toggle light / dark mode">
+    <span class="toggle-label" id="toggleLabel">Dark</span>
+    <div class="toggle-track">
+      <div class="toggle-thumb">
+        <!-- moon (dark mode) -->
+        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z"/></svg>
+        <!-- sun (light mode) -->
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="21" x2="12" y2="23" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="12" x2="3" y2="12" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="21" y1="12" x2="23" y2="12" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="#fff" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+  </button>
+  <div class="nav-legend">
+    <span class="nav-legend-label">Legend:</span>
+    <div class="nav-legend-dots">
+      <div class="nav-legend-dot" style="background:#6366f1" title="Client"></div>
+      <div class="nav-legend-dot" style="background:#8b5cf6" title="Gateway"></div>
+      <div class="nav-legend-dot" style="background:#06b6d4" title="Core"></div>
+      <div class="nav-legend-dot" style="background:#f59e0b" title="Messaging"></div>
+      <div class="nav-legend-dot" style="background:#ef4444" title="Storage"></div>
+      <div class="nav-legend-dot" style="background:#10b981" title="External"></div>
+      <div class="nav-legend-dot" style="background:#f97316" title="Infra"></div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- ══════════════ 1. CLIENT LAYER ══════════════ -->
+  <div class="layer layer-1" id="layer-client">
+    <div class="layer-header">
+      <div class="layer-num-title">
+        <div class="layer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <div class="layer-title">1. Client Layer</div>
+      </div>
+      <div class="layer-subtitle">Multi-channel user interfaces for different user personas.</div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid cols-4">
+
+        <div class="card" id="card-web"
+          data-title="Web Portal → API Gateway"
+          data-desc="HTTPS requests from browser SPA route through WAF → API Gateway → Core services. Auth via OAuth 2.0 token in Authorization header."
+          data-flows='["card-web→card-waf","card-waf→card-apigw","card-apigw→card-portfolio","card-apigw→card-order"]'
+          data-color="indigo">
+          <div class="card-title">Web Portal</div>
+          <div class="card-desc">Responsive SPA for retail clients to view portfolios and execute trades.</div>
+          <div class="card-tags">
+            <span class="tag t-indigo">React</span>
+            <span class="tag t-indigo">TypeScript</span>
+            <span class="tag t-indigo">Tailwind</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-mobile"
+          data-title="Mobile App → API Gateway"
+          data-desc="Native REST calls over TLS 1.3. Push notifications via APNs / FCM. Biometric auth token sent to Identity service."
+          data-flows='["card-mobile→card-waf","card-waf→card-apigw","card-apigw→card-notif","card-apigw→card-client-mgmt"]'
+          data-color="indigo">
+          <div class="card-title">Mobile App</div>
+          <div class="card-desc">Native application for on-the-go portfolio monitoring and alerts.</div>
+          <div class="card-tags">
+            <span class="tag t-indigo">React Native</span>
+            <span class="tag t-indigo">Swift</span>
+            <span class="tag t-indigo">Kotlin</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-advisor"
+          data-title="Advisor Dashboard → Core Services"
+          data-desc="Angular dashboard sends gRPC-web calls for real-time analytics. FIX protocol for order routing. WebSocket stream for live P&L."
+          data-flows='["card-advisor→card-waf","card-waf→card-apigw","card-apigw→card-wealth","card-apigw→card-risk","card-apigw→card-order"]'
+          data-color="indigo">
+          <div class="card-title">Advisor Dashboard</div>
+          <div class="card-desc">Complex terminal for wealth managers managing multiple client accounts.</div>
+          <div class="card-tags">
+            <span class="tag t-indigo">Angular</span>
+            <span class="tag t-indigo">RxJS</span>
+            <span class="tag t-indigo">AG Grid</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-institutional"
+          data-title="Institutional Portal → Risk & Order"
+          data-desc="High-density data portal connects directly to Risk Assessment and Order Management via authenticated WebSocket channels. D3.js for live charts."
+          data-flows='["card-institutional→card-waf","card-waf→card-apigw","card-apigw→card-risk","card-apigw→card-order","card-apigw→card-report"]'
+          data-color="indigo">
+          <div class="card-title">Institutional Portal</div>
+          <div class="card-desc">High-density data portal for institutional investors with advanced analytics.</div>
+          <div class="card-tags">
+            <span class="tag t-indigo">React</span>
+            <span class="tag t-indigo">D3.js</span>
+            <span class="tag t-indigo">WebSockets</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 2. API GATEWAY & SECURITY ══════════════ -->
+  <div class="layer layer-2" id="layer-gateway">
+    <div class="layer-header">
+      <div class="layer-num-title">
+        <div class="layer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="layer-title">2. API Gateway &amp; Security</div>
+      </div>
+      <div class="layer-subtitle">Secure entry point and routing layer for all incoming requests.</div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid cols-4">
+
+        <div class="card" id="card-waf"
+          data-title="WAF → API Gateway"
+          data-desc="All inbound traffic is inspected against OWASP Top 10 and DDoS signatures. Clean requests forwarded to API Gateway. Blocks ~200 attacks/day."
+          data-flows='["card-waf→card-apigw"]'
+          data-color="violet">
+          <div class="card-title">WAF</div>
+          <div class="card-desc">Web Application Firewall protecting against OWASP top 10 and DDoS.</div>
+          <div class="card-tags">
+            <span class="tag t-violet">AWS WAF</span>
+            <span class="tag t-violet">Cloudflare</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-apigw"
+          data-title="API Gateway → Microservices"
+          data-desc="Routes validated requests to downstream services. Handles SSL termination, request transformation, GraphQL stitching. Kong plugins for logging."
+          data-flows='["card-apigw→card-portfolio","card-apigw→card-wealth","card-apigw→card-order","card-apigw→card-risk","card-apigw→card-client-mgmt","card-apigw→card-notif"]'
+          data-color="violet">
+          <div class="card-title">API Gateway</div>
+          <div class="card-desc">Routes requests, handles SSL termination, and manages upstream services.</div>
+          <div class="card-tags">
+            <span class="tag t-violet">Kong</span>
+            <span class="tag t-violet">Nginx</span>
+            <span class="tag t-violet">GraphQL</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-identity"
+          data-title="Identity → All Authenticated Requests"
+          data-desc="Validates JWT tokens on every request. Issues access + refresh tokens via OAuth 2.0. SSO via OpenID Connect. Token revocation list stored in Redis."
+          data-flows='["card-identity→card-apigw","card-identity→card-ratelimiter"]'
+          data-color="violet">
+          <div class="card-title">Identity (OAuth 2.0)</div>
+          <div class="card-desc">Handles authentication, authorisation, and SSO via OpenID Connect.</div>
+          <div class="card-tags">
+            <span class="tag t-violet">Okta</span>
+            <span class="tag t-violet">Keycloak</span>
+            <span class="tag t-violet">JWT</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-ratelimiter"
+          data-title="Rate Limiter → Throttled Response"
+          data-desc="Token-bucket algorithm enforces per-user limits. Exceeded requests return 429. Counters stored in Redis with 60s TTL sliding window."
+          data-flows='["card-ratelimiter→card-apigw","card-ratelimiter→card-cache"]'
+          data-color="violet">
+          <div class="card-title">Rate Limiter</div>
+          <div class="card-desc">Throttles incoming requests to protect downstream services.</div>
+          <div class="card-tags">
+            <span class="tag t-violet">Redis</span>
+            <span class="tag t-violet">Envoy</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 3. CORE MICROSERVICES ══════════════ -->
+  <div class="layer layer-3" id="layer-core">
+    <div class="layer-header">
+      <div class="layer-num-title">
+        <div class="layer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+        </div>
+        <div class="layer-title">3. Core Microservices</div>
+      </div>
+      <div class="layer-subtitle">Business logic and domain services handling wealth management operations.</div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid cols-5 layer-row-gap">
+
+        <div class="card" id="card-portfolio"
+          data-title="Portfolio Management → Data Layer"
+          data-desc="Reads positions from Portfolio DB. Publishes rebalancing events to Kafka. Queries Market Data DB for current prices. Calls Risk Assessment for VaR."
+          data-flows='["card-portfolio→card-eventbus","card-portfolio→card-portfolio-db","card-portfolio→card-market-db","card-portfolio→card-risk"]'
+          data-color="cyan">
+          <div class="card-title">Portfolio Management</div>
+          <div class="card-desc">Maintains current positions, asset allocations, and rebalancing logic.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">Java</span>
+            <span class="tag t-cyan">Spring Boot</span>
+            <span class="tag t-cyan">gRPC</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-wealth"
+          data-title="Wealth Analytics → Data Warehouse"
+          data-desc="Runs Spark batch jobs for performance attribution. Reads from Data Warehouse. Publishes analytics events to Kafka. Results cached in Redis."
+          data-flows='["card-wealth→card-warehouse","card-wealth→card-eventbus","card-wealth→card-cache"]'
+          data-color="cyan">
+          <div class="card-title">Wealth Analytics</div>
+          <div class="card-desc">Calculates performance metrics, attribution, and risk-adjusted returns.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">Python</span>
+            <span class="tag t-cyan">Apache Spark</span>
+            <span class="tag t-cyan">Pandas</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-order"
+          data-title="Order Management → External / Storage"
+          data-desc="Routes orders via FIX API to external venues. Writes trade records to Portfolio DB. Publishes fill events to Kafka consumed by Portfolio Management."
+          data-flows='["card-order→card-portfolio-db","card-order→card-eventbus","card-order→card-market-providers"]'
+          data-color="cyan">
+          <div class="card-title">Order Management</div>
+          <div class="card-desc">Routes orders to execution venues, handles FIX protocol, and manages fills.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">C++</span>
+            <span class="tag t-cyan">FIX API</span>
+            <span class="tag t-cyan">ZeroMQ</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-risk"
+          data-title="Risk Assessment → Market Data / Cache"
+          data-desc="Computes VaR using Monte Carlo simulation. Reads real-time prices from Market Data DB. Results published to Kafka, cached 30s in Redis for dashboard consumption."
+          data-flows='["card-risk→card-market-db","card-risk→card-cache","card-risk→card-eventbus"]'
+          data-color="cyan">
+          <div class="card-title">Risk Assessment</div>
+          <div class="card-desc">Computes Value at Risk (VaR), runs stress tests, and monitors exposure.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">Python</span>
+            <span class="tag t-cyan">C++</span>
+            <span class="tag t-cyan">CUDA</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-client-mgmt"
+          data-title="Client Management → Client DB"
+          data-desc="CRUD operations on client profiles persisted in Client DB (PostgreSQL). KYC/AML events emitted to Kafka. Suitability questionnaire data in Document Store."
+          data-flows='["card-client-mgmt→card-client-db","card-client-mgmt→card-eventbus","card-client-mgmt→card-docstore"]'
+          data-color="cyan">
+          <div class="card-title">Client Management</div>
+          <div class="card-desc">Manages client profiles, KYC/AML status, and onboarding workflows.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">Node.js</span>
+            <span class="tag t-cyan">Express</span>
+            <span class="tag t-cyan">PostgreSQL</span>
+          </div>
+        </div>
+
+      </div>
+      <div class="card-grid cols-3">
+
+        <div class="card" id="card-report"
+          data-title="Reporting Service → Storage / Logging"
+          data-desc="Generates PDF statements by querying Portfolio DB + Data Warehouse. Stores outputs in Document Store. Audit trail written to ELK stack."
+          data-flows='["card-report→card-portfolio-db","card-report→card-warehouse","card-report→card-docstore","card-report→card-logging"]'
+          data-color="cyan">
+          <div class="card-title">Reporting Service</div>
+          <div class="card-desc">Generates periodic PDF statements, tax documents, and regulatory filings.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">Go</span>
+            <span class="tag t-cyan">Puppeteer</span>
+            <span class="tag t-cyan">S3</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-fee"
+          data-title="Fee Engine → Portfolio DB / Kafka"
+          data-desc="Calculates AUM-based management fees on daily batch cycle. Writes fee ledger to Portfolio DB. Triggers billing events on Kafka consumed by Notification Service."
+          data-flows='["card-fee→card-portfolio-db","card-fee→card-eventbus","card-fee→card-notif"]'
+          data-color="cyan">
+          <div class="card-title">Fee Engine</div>
+          <div class="card-desc">Calculates AUM-based management fees and high-water mark performance fees.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">Java</span>
+            <span class="tag t-cyan">Spring Batch</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-notif"
+          data-title="Notification Service → External / Kafka"
+          data-desc="Consumes events from Kafka topics (alerts, fills, statements). Dispatches via SendGrid (email), Twilio (SMS), APNs/FCM (push). Delivery receipts written back to Kafka."
+          data-flows='["card-eventbus→card-notif","card-notif→card-payment-networks"]'
+          data-color="cyan">
+          <div class="card-title">Notification Service</div>
+          <div class="card-desc">Dispatches alerts, margin calls, and systemic events via Email/SMS/Push.</div>
+          <div class="card-tags">
+            <span class="tag t-cyan">Node.js</span>
+            <span class="tag t-cyan">SendGrid</span>
+            <span class="tag t-cyan">Twilio</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 4. DATA & MESSAGING ══════════════ -->
+  <div class="layer layer-4" id="layer-messaging">
+    <div class="layer-header">
+      <div class="layer-num-title">
+        <div class="layer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="2"><path d="M22 12H2M22 6H2M22 18H2"/></svg>
+        </div>
+        <div class="layer-title">4. Data &amp; Messaging</div>
+      </div>
+      <div class="layer-subtitle">High-throughput asynchronous communication and fast caching.</div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid cols-3">
+
+        <div class="card" id="card-eventbus"
+          data-title="Event Bus (Kafka) → All Consumers"
+          data-desc="Kafka partitions topics by client-id for parallelism. Consumers: Portfolio Mgmt, Wealth Analytics, Notification Svc, Audit. Retention: 14 days. ~2M events/day."
+          data-flows='["card-eventbus→card-portfolio","card-eventbus→card-wealth","card-eventbus→card-notif","card-eventbus→card-portfolio-db"]'
+          data-color="amber">
+          <div class="card-title">Event Bus (Kafka)</div>
+          <div class="card-desc">Distributed streaming platform for decoupled microservice communication.</div>
+          <div class="card-tags">
+            <span class="tag t-amber">Apache Kafka</span>
+            <span class="tag t-amber">Zookeeper</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-cache"
+          data-title="Cache Layer → Microservices"
+          data-desc="Redis Cluster serves sub-millisecond reads for market data, session tokens, and rate-limit counters. TTL: 30s for prices, 15min for sessions."
+          data-flows='["card-cache→card-portfolio","card-cache→card-risk","card-cache→card-wealth","card-cache→card-ratelimiter"]'
+          data-color="amber">
+          <div class="card-title">Cache Layer</div>
+          <div class="card-desc">In-memory data structure store used for caching market data and session state.</div>
+          <div class="card-tags">
+            <span class="tag t-amber">Redis Cluster</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-search"
+          data-title="Search Index → Query Clients"
+          data-desc="Elasticsearch ingests trade records and instrument metadata via Logstash pipeline from PostgreSQL CDC. Powers full-text search in Advisor Dashboard."
+          data-flows='["card-search→card-advisor","card-search→card-institutional","card-portfolio-db→card-search"]'
+          data-color="amber">
+          <div class="card-title">Search Index</div>
+          <div class="card-desc">Full-text search engine for rapid querying of trades, instruments, and clients.</div>
+          <div class="card-tags">
+            <span class="tag t-amber">Elasticsearch</span>
+            <span class="tag t-amber">Logstash</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 5. DATA STORAGE ══════════════ -->
+  <div class="layer layer-5" id="layer-storage">
+    <div class="layer-header">
+      <div class="layer-num-title">
+        <div class="layer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fca5a5" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <div class="layer-title">5. Data Storage</div>
+      </div>
+      <div class="layer-subtitle">Persistent source of truth across relational, document, and time-series models.</div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid cols-5">
+
+        <div class="card" id="card-portfolio-db"
+          data-title="Portfolio DB → Portfolio Mgmt / Order Mgmt"
+          data-desc="PostgreSQL with Aurora read replicas. Stores accounts, positions, trade history. WAL-based CDC feeds Kafka and Search Index. Point-in-time recovery enabled."
+          data-flows='["card-portfolio-db→card-portfolio","card-portfolio-db→card-search","card-portfolio-db→card-report"]'
+          data-color="red">
+          <div class="card-title">Portfolio DB</div>
+          <div class="card-desc">Transactional store for accounts, positions, and trade history.</div>
+          <div class="card-tags">
+            <span class="tag t-red">PostgreSQL</span>
+            <span class="tag t-red">Aurora</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-client-db"
+          data-title="Client DB → Client Management"
+          data-desc="PostgreSQL stores client PII, suitability profiles, permissions, audit logs. GDPR-compliant with field-level encryption. Client Management is primary writer."
+          data-flows='["card-client-db→card-client-mgmt","card-client-db→card-report"]'
+          data-color="red">
+          <div class="card-title">Client DB</div>
+          <div class="card-desc">Relational store for user profiles, permissions, and audit logs.</div>
+          <div class="card-tags">
+            <span class="tag t-red">PostgreSQL</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-market-db"
+          data-title="Market Data DB → Risk / Portfolio"
+          data-desc="InfluxDB ingests real-time tick data from Bloomberg/Refinitiv. TimescaleDB aggregates OHLCV bars. Risk Assessment and Portfolio read sub-second prices."
+          data-flows='["card-market-db→card-risk","card-market-db→card-portfolio","card-market-db→card-wealth"]'
+          data-color="red">
+          <div class="card-title">Market Data DB</div>
+          <div class="card-desc">High-ingest time-series database for tick data and end-of-day prices.</div>
+          <div class="card-tags">
+            <span class="tag t-red">InfluxDB</span>
+            <span class="tag t-red">TimescaleDB</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-docstore"
+          data-title="Document Store → Reports / Client Mgmt"
+          data-desc="MongoDB stores generated PDFs (statements, tax docs), KYC documents, unstructured JSON payloads. GridFS for binary objects. Sharded by client-id."
+          data-flows='["card-docstore→card-report","card-docstore→card-client-mgmt"]'
+          data-color="red">
+          <div class="card-title">Document Store</div>
+          <div class="card-desc">NoSQL storage for unstructured data like generated PDFs and JSON.</div>
+          <div class="card-tags">
+            <span class="tag t-red">MongoDB</span>
+            <span class="tag t-red">DocumentDB</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-warehouse"
+          data-title="Data Warehouse → Analytics / Reporting"
+          data-desc="Snowflake receives nightly ETL from all operational DBs via dbt pipelines. Powers Wealth Analytics Spark jobs and Reporting Service BI queries."
+          data-flows='["card-warehouse→card-wealth","card-warehouse→card-report"]'
+          data-color="red">
+          <div class="card-title">Data Warehouse</div>
+          <div class="card-desc">Analytical storage for BI reporting and historical trend analysis.</div>
+          <div class="card-tags">
+            <span class="tag t-red">Snowflake</span>
+            <span class="tag t-red">dbt</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 6. EXTERNAL INTEGRATIONS ══════════════ -->
+  <div class="layer layer-6" id="layer-external">
+    <div class="layer-header">
+      <div class="layer-num-title">
+        <div class="layer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div class="layer-title">6. External Integrations</div>
+      </div>
+      <div class="layer-subtitle">Third-party services, data providers, and regulatory endpoints.</div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid cols-5">
+
+        <div class="card" id="card-market-providers"
+          data-title="Market Providers → Market Data DB"
+          data-desc="Bloomberg B-PIPE and Refinitiv Elektron stream real-time prices via WebSocket. Data normalised and written to Market Data DB (InfluxDB) every 100ms."
+          data-flows='["card-market-providers→card-market-db"]'
+          data-color="green">
+          <div class="card-title">Market Providers</div>
+          <div class="card-desc">Real-time feeds for equity, fixed income, and FX pricing.</div>
+          <div class="card-tags">
+            <span class="tag t-green">Bloomberg</span>
+            <span class="tag t-green">Refinitiv</span>
+            <span class="tag t-green">WebSocket</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-custodians"
+          data-title="Custodian Banks → Portfolio DB"
+          data-desc="DTC / Euroclear / SWIFT message files reconciled nightly. Positions and settlement data written to Portfolio DB via secure SFTP batch jobs."
+          data-flows='["card-custodians→card-portfolio-db","card-custodians→card-order"]'
+          data-color="green">
+          <div class="card-title">Custodian Banks</div>
+          <div class="card-desc">Endpoints for prime brokers holding actual assets and executing clearing.</div>
+          <div class="card-tags">
+            <span class="tag t-green">DTC</span>
+            <span class="tag t-green">Euroclear</span>
+            <span class="tag t-green">SWIFT</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-regulatory"
+          data-title="Regulatory APIs → Reporting Service"
+          data-desc="Reporting Service pushes SEC, FINRA, MiFID II filings via SOAP/XML/REST endpoints. Acknowledgements stored in Document Store. Filed on T+1 schedule."
+          data-flows='["card-report→card-regulatory","card-regulatory→card-docstore"]'
+          data-color="green">
+          <div class="card-title">Regulatory APIs</div>
+          <div class="card-desc">Automated reporting endpoints for SEC, FINRA, and MiFID II compliance.</div>
+          <div class="card-tags">
+            <span class="tag t-green">REST</span>
+            <span class="tag t-green">SOAP</span>
+            <span class="tag t-green">XML</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-payment-networks"
+          data-title="Payment Networks → Client Management"
+          data-desc="ACH / FedWire for cash transfers. Plaid for bank account linking and identity verification. Webhooks from Plaid update Client DB via Client Management."
+          data-flows='["card-payment-networks→card-client-mgmt","card-payment-networks→card-client-db"]'
+          data-color="green">
+          <div class="card-title">Payment Networks</div>
+          <div class="card-desc">Rails for fiat money movement, deposits, and withdrawals.</div>
+          <div class="card-tags">
+            <span class="tag t-green">ACH</span>
+            <span class="tag t-green">FedWire</span>
+            <span class="tag t-green">Plaid</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-ratings"
+          data-title="Rating Agencies → Market Data DB"
+          data-desc="Moody's and S&P credit rating feeds ingested via REST API daily. Written to Market Data DB. Used by Risk Assessment for fixed-income portfolio analysis."
+          data-flows='["card-ratings→card-market-db","card-market-db→card-risk"]'
+          data-color="green">
+          <div class="card-title">Rating Agencies</div>
+          <div class="card-desc">Credit rating ingestion for fixed income portfolio risk analysis.</div>
+          <div class="card-tags">
+            <span class="tag t-green">Moody's</span>
+            <span class="tag t-green">S&amp;P API</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 7. INFRASTRUCTURE & OBSERVABILITY ══════════════ -->
+  <div class="layer layer-7" id="layer-infra">
+    <div class="layer-header">
+      <div class="layer-num-title">
+        <div class="layer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fdba74" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 8h.01M9 8h.01"/></svg>
+        </div>
+        <div class="layer-title">7. Infrastructure &amp; Observability</div>
+      </div>
+      <div class="layer-subtitle">Underlying cloud resources and system monitoring stack.</div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid cols-4">
+
+        <div class="card" id="card-cloud"
+          data-title="Cloud Infra → All Services"
+          data-desc="Multi-region AWS: us-east-1 (primary), eu-west-1, ap-southeast-1. Kubernetes EKS clusters with Terraform IaC. Auto-scaling HPA on CPU/latency metrics."
+          data-flows='["card-cloud→card-monitoring","card-cloud→card-cicd"]'
+          data-color="orange">
+          <div class="card-title">Cloud Infra</div>
+          <div class="card-desc">Multi-region active-active deployment for high availability.</div>
+          <div class="card-tags">
+            <span class="tag t-orange">AWS</span>
+            <span class="tag t-orange">Kubernetes</span>
+            <span class="tag t-orange">Terraform</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-cicd"
+          data-title="CI/CD Pipeline → All Deployments"
+          data-desc="GitLab CI runs unit, integration, and security scans on every PR. ArgoCD syncs Kubernetes manifests on merge to main. SonarQube quality gate must pass."
+          data-flows='["card-cicd→card-cloud","card-cicd→card-monitoring"]'
+          data-color="orange">
+          <div class="card-title">CI/CD Pipeline</div>
+          <div class="card-desc">Automated testing, security scanning, and deployment automation.</div>
+          <div class="card-tags">
+            <span class="tag t-orange">GitLab CI</span>
+            <span class="tag t-orange">ArgoCD</span>
+            <span class="tag t-orange">SonarQube</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-monitoring"
+          data-title="Monitoring → Alerting"
+          data-desc="Prometheus scrapes metrics from all pods every 15s. Grafana dashboards for latency, error rate, saturation. PagerDuty alerts on SLO breach."
+          data-flows='["card-monitoring→card-logging","card-monitoring→card-cloud"]'
+          data-color="orange">
+          <div class="card-title">Monitoring</div>
+          <div class="card-desc">Metrics collection and dashboarding for system health.</div>
+          <div class="card-tags">
+            <span class="tag t-orange">Prometheus</span>
+            <span class="tag t-orange">Grafana</span>
+            <span class="tag t-orange">Datadog</span>
+          </div>
+        </div>
+
+        <div class="card" id="card-logging"
+          data-title="Logging → All Services"
+          data-desc="Fluent Bit ships logs from all containers to Splunk Cloud. OpenTelemetry traces span across services for distributed tracing. Log retention: 90 days hot, 7 years cold."
+          data-flows='["card-logging→card-monitoring"]'
+          data-color="orange">
+          <div class="card-title">Logging</div>
+          <div class="card-desc">Centralised logging and trace aggregation for debugging.</div>
+          <div class="card-tags">
+            <span class="tag t-orange">ELK Stack</span>
+            <span class="tag t-orange">Splunk</span>
+            <span class="tag t-orange">OpenTelemetry</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════
+   ANIMATED FLOW ARROWS ENGINE
+═══════════════════════════════════════════ */
+
+const canvas = document.getElementById('flow-canvas');
+const tooltip = document.getElementById('flow-tooltip');
+
+// Color map
+const colorMap = {
+  indigo: '#a5b4fc',
+  violet: '#c4b5fd',
+  cyan:   '#67e8f9',
+  amber:  '#fcd34d',
+  red:    '#fca5a5',
+  green:  '#6ee7b7',
+  orange: '#fdba74',
+};
+
+const markerMap = {
+  indigo: 'arr-indigo',
+  violet: 'arr-violet',
+  cyan:   'arr-cyan',
+  amber:  'arr-amber',
+  red:    'arr-red',
+  green:  'arr-green',
+  orange: 'arr-orange',
+};
+
+let activePaths = [];
+let hoverTimer = null;
+
+function getCenter(el) {
+  const r = el.getBoundingClientRect();
+  return {
+    x: r.left + r.width / 2,
+    y: r.top + r.height / 2,
+    top: r.top,
+    bottom: r.bottom,
+    left: r.left,
+    right: r.right,
+    width: r.width,
+    height: r.height,
+  };
+}
+
+function buildCubicPath(from, to) {
+  const fx = from.x, fy = from.bottom - 6;
+  const tx = to.x,   ty = to.top + 6;
+  const dy = Math.abs(ty - fy);
+  const cp = Math.max(dy * 0.5, 40);
+  return `M ${fx} ${fy} C ${fx} ${fy + cp}, ${tx} ${ty - cp}, ${tx} ${ty}`;
+}
+
+function buildSidePath(from, to) {
+  // same-layer: go out the side
+  const goRight = to.x > from.x;
+  const fx = goRight ? from.right - 4 : from.left + 4;
+  const fy = from.y;
+  const tx = goRight ? to.left + 4 : to.right - 4;
+  const ty = to.y;
+  const mx = (fx + tx) / 2;
+  return `M ${fx} ${fy} C ${mx} ${fy}, ${mx} ${ty}, ${tx} ${ty}`;
+}
+
+function clearFlows() {
+  activePaths.forEach(p => p.remove());
+  activePaths = [];
+}
+
+function drawFlows(flows, color) {
+  clearFlows();
+  const marker = markerMap[color] || 'arr-cyan';
+  const stroke = colorMap[color] || '#67e8f9';
+
+  flows.forEach((pair, i) => {
+    const [fromId, toId] = pair.split('→');
+    const fromEl = document.getElementById(fromId);
+    const toEl   = document.getElementById(toId);
+    if (!fromEl || !toEl) return;
+
+    const f = getCenter(fromEl);
+    const t = getCenter(toEl);
+
+    // Decide path type: vertical (different layers) vs horizontal (same layer)
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect   = toEl.getBoundingClientRect();
+    const isSameRow = Math.abs(fromRect.top - toRect.top) < 60;
+
+    const d = isSameRow ? buildSidePath(f, t) : buildCubicPath(f, t);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', stroke);
+    path.setAttribute('marker-end', `url(#${marker})`);
+    path.classList.add('flow-path');
+
+    // stagger fade-in
+    setTimeout(() => path.classList.add('visible'), i * 80);
+
+    canvas.appendChild(path);
+    activePaths.push(path);
+  });
+}
+
+// Attach hover listeners to all cards
+document.querySelectorAll('.card[data-flows]').forEach(card => {
+  card.addEventListener('mouseenter', (e) => {
+    clearTimeout(hoverTimer);
+
+    const rawFlows = card.dataset.flows;
+    const color    = card.dataset.color || 'cyan';
+    let flows = [];
+    try { flows = JSON.parse(rawFlows); } catch(err){}
+
+    drawFlows(flows, color);
+
+    // Show tooltip
+    const title = card.dataset.title || '';
+    const desc  = card.dataset.desc  || '';
+    tooltip.innerHTML = `<strong>${title}</strong>${desc}`;
+    tooltip.classList.add('show');
+    positionTooltip(e);
+  });
+
+  card.addEventListener('mousemove', positionTooltip);
+
+  card.addEventListener('mouseleave', () => {
+    hoverTimer = setTimeout(clearFlows, 120);
+    tooltip.classList.remove('show');
+  });
+});
+
+function positionTooltip(e) {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX + 16, y = e.clientY + 16;
+  const tw = 250, th = 90;
+  if (x + tw > vw) x = e.clientX - tw - 8;
+  if (y + th > vh) y = e.clientY - th - 8;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+
+// Redraw on resize/scroll (paths are in fixed coords)
+let redrawFrame;
+function scheduleRedraw() {
+  cancelAnimationFrame(redrawFrame);
+  redrawFrame = requestAnimationFrame(() => clearFlows());
+}
+window.addEventListener('resize', scheduleRedraw);
+window.addEventListener('scroll', scheduleRedraw, { passive: true });
+
+// Search filter
+const searchInput = document.querySelector('.nav-search input');
+searchInput.addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('.card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.opacity = (!q || text.includes(q)) ? '1' : '0.25';
+    card.style.transform = (!q || text.includes(q)) ? '' : 'scale(0.97)';
+  });
+});
+
+/* ───────────────────────────────────
+   LIGHT / DARK TOGGLE
+─────────────────────────────────── */
+const toggleBtn   = document.getElementById('themeToggle');
+const toggleLabel = document.getElementById('toggleLabel');
+const html        = document.documentElement;
+
+function applyTheme(isLight) {
+  if (isLight) {
+    html.classList.add('light');
+    toggleLabel.textContent = 'LIGHT';
+  } else {
+    html.classList.remove('light');
+    toggleLabel.textContent = 'DARK';
+  }
+}
+
+// Restore saved preference (default: dark)
+const saved = localStorage.getItem('wealthos-theme');
+applyTheme(saved === 'light');
+
+toggleBtn.addEventListener('click', () => {
+  const isLight = !html.classList.contains('light');
+  applyTheme(isLight);
+  localStorage.setItem('wealthos-theme', isLight ? 'light' : 'dark');
+  clearFlows();
+});
+</script>
+</body>
+</html>
